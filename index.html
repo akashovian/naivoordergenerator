@@ -92,8 +92,8 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             margin-top: 30px;
             display: none;
-            white-space: pre-wrap;
-            font-family: monospace;
+            font-family: Arial, sans-serif;
+            line-height: 1.5;
         }
         .radio-group {
             display: flex;
@@ -109,12 +109,6 @@
             font-weight: normal;
             margin-bottom: 0;
         }
-        .report-section {
-            margin-bottom: 15px;
-        }
-        .report-line {
-            margin: 5px 0;
-        }
         .shipping-fee-container {
             display: flex;
             gap: 10px;
@@ -124,6 +118,42 @@
         }
         .shipping-fee-container select {
             flex: 1;
+        }
+        .disabled-input {
+            background-color: #f0f0f0;
+            cursor: not-allowed;
+        }
+        .grind-size-container {
+            margin-top: 10px;
+        }
+        .special-instructions-container {
+            margin-top: 5px;
+        }
+        .section-header {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin: 15px 0 5px 0;
+            padding-bottom: 3px;
+            border-bottom: 1px solid #eee;
+        }
+        .section-spacing {
+            margin-top: 15px;
+        }
+        .product-header {
+            font-weight: bold;
+            margin: 10px 0 5px 0;
+        }
+        .field-label {
+            font-weight: bold;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0 5px 0;
+        }
+        .compact {
+            margin: 5px 0;
         }
     </style>
 </head>
@@ -161,7 +191,7 @@
                 </div>
                 <div class="form-group">
                     <label for="productType1">Product Type</label>
-                    <select id="productType1" onchange="toggleProductExtraField('product1')" required>
+                    <select id="productType1" onchange="handleProductTypeChange('product1')" required>
                         <option value="">Select</option>
                         <option value="roasted">Roasted Coffee</option>
                         <option value="unroasted">Unroasted Coffee</option>
@@ -169,13 +199,19 @@
                     </select>
                 </div>
                 <div class="form-group" id="productExtraField1" style="display: none;">
-                    <label id="productExtraLabel1">Grind Size</label>
-                    <input type="text" id="productExtraValue1">
+                    <label id="productExtraLabel1"></label>
+                    <select id="productExtraValue1" onchange="toggleGrindSizeField('product1')">
+                        <!-- Options will be populated dynamically -->
+                    </select>
+                    <div class="grind-size-container" id="grindSizeContainer1" style="display: none;">
+                        <label>Enter Grind Size</label>
+                        <input type="text" id="grindSize1">
+                    </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="otherGstField1" style="display: none;">
                     <label for="gst1">GST Taxation</label>
-                    <select id="gst1" required>
-                        <option value="5" selected>5%</option>
+                    <select id="gst1">
+                        <option value="5">5%</option>
                         <option value="0">Tax Exempt</option>
                         <option value="12">12%</option>
                         <option value="18">18%</option>
@@ -186,20 +222,22 @@
                     <label for="discount1">Discount (%)</label>
                     <input type="number" id="discount1" min="0" max="100" value="0" step="0.01">
                 </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="specialInstructionsCheck1" onchange="toggleSpecialInstructions('product1')">
+                    <label for="specialInstructionsCheck1">Special Instructions?</label>
+                </div>
+                <div class="special-instructions-container" id="specialInstructionsContainer1" style="display: none;">
+                    <textarea id="productSpecialInstructions1" rows="2" placeholder="Enter special instructions for this product"></textarea>
+                </div>
             </div>
         </div>
         <button class="add-btn" onclick="addProduct()">+ Add Product</button>
     </div>
     
     <div class="form-section">
-        <h2>Packing Instructions</h2>
+        <h2>Packaging & Labelling Instructions</h2>
         <div class="form-group">
-            <label for="packagingInstructions">Packaging Instructions</label>
-            <textarea id="packagingInstructions" rows="3"></textarea>
-        </div>
-        <div class="form-group">
-            <label for="labels">Labels</label>
-            <textarea id="labels" rows="3"></textarea>
+            <textarea id="packagingInstructions" rows="3" placeholder="Enter packaging and labelling instructions"></textarea>
         </div>
     </div>
     
@@ -220,13 +258,14 @@
                     <label for="shippingFees1">Shipping Fees</label>
                     <div class="shipping-fee-container">
                         <input type="number" id="shippingFees1" step="0.01" min="0" placeholder="Enter amount">
-                        <select id="shippingFeeType1">
+                        <select id="shippingFeeType1" onchange="toggleShippingFeeInput('dispatch1')">
                             <option value="fixed">Fixed Amount</option>
                             <option value="tbc">To Be Calculated</option>
+                            <option value="free">Free Shipping</option>
                         </select>
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="shippingGstGroup1">
                     <label for="shippingGst1">Shipping GST</label>
                     <select id="shippingGst1" required>
                         <option value="0">0%</option>
@@ -302,24 +341,19 @@
     <div id="orderReport"></div>
 
     <script>
-        // Global variables
         let productCount = 1;
         let dispatchCount = 1;
         
-        // Initialize with today's date
         document.addEventListener('DOMContentLoaded', function() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('orderDate').value = today;
+            document.getElementById('orderDate').value = new Date().toISOString().split('T')[0];
+            updateProductExtraOptions('product1');
         });
         
-        // Add new product fields
         function addProduct() {
             productCount++;
-            const productsContainer = document.getElementById('productsContainer');
             const newProduct = document.createElement('div');
             newProduct.className = 'product-item';
-            newProduct.id = 'product' + productCount;
-            
+            newProduct.id = `product${productCount}`;
             newProduct.innerHTML = `
                 <button class="remove-btn" onclick="removeProduct('product${productCount}')">×</button>
                 <div class="form-group">
@@ -336,7 +370,7 @@
                 </div>
                 <div class="form-group">
                     <label for="productType${productCount}">Product Type</label>
-                    <select id="productType${productCount}" onchange="toggleProductExtraField('product${productCount}')" required>
+                    <select id="productType${productCount}" onchange="handleProductTypeChange('product${productCount}')" required>
                         <option value="">Select</option>
                         <option value="roasted">Roasted Coffee</option>
                         <option value="unroasted">Unroasted Coffee</option>
@@ -344,13 +378,17 @@
                     </select>
                 </div>
                 <div class="form-group" id="productExtraField${productCount}" style="display: none;">
-                    <label id="productExtraLabel${productCount}">Grind Size</label>
-                    <input type="text" id="productExtraValue${productCount}">
+                    <label id="productExtraLabel${productCount}"></label>
+                    <select id="productExtraValue${productCount}" onchange="toggleGrindSizeField('product${productCount}')"></select>
+                    <div class="grind-size-container" id="grindSizeContainer${productCount}" style="display: none;">
+                        <label>Enter Grind Size</label>
+                        <input type="text" id="grindSize${productCount}">
+                    </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="otherGstField${productCount}" style="display: none;">
                     <label for="gst${productCount}">GST Taxation</label>
-                    <select id="gst${productCount}" required>
-                        <option value="5" selected>5%</option>
+                    <select id="gst${productCount}">
+                        <option value="5">5%</option>
                         <option value="0">Tax Exempt</option>
                         <option value="12">12%</option>
                         <option value="18">18%</option>
@@ -361,64 +399,112 @@
                     <label for="discount${productCount}">Discount (%)</label>
                     <input type="number" id="discount${productCount}" min="0" max="100" value="0" step="0.01">
                 </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="specialInstructionsCheck${productCount}" onchange="toggleSpecialInstructions('product${productCount}')">
+                    <label for="specialInstructionsCheck${productCount}">Special Instructions?</label>
+                </div>
+                <div class="special-instructions-container" id="specialInstructionsContainer${productCount}" style="display: none;">
+                    <textarea id="productSpecialInstructions${productCount}" rows="2" placeholder="Enter special instructions for this product"></textarea>
+                </div>
             `;
-            
-            productsContainer.appendChild(newProduct);
+            document.getElementById('productsContainer').appendChild(newProduct);
+            updateProductExtraOptions(`product${productCount}`);
         }
         
-        // Remove product fields
         function removeProduct(productId) {
             if (productCount > 1) {
-                const productToRemove = document.getElementById(productId);
-                productToRemove.remove();
+                document.getElementById(productId).remove();
                 productCount--;
             } else {
                 alert("You must have at least one product.");
             }
         }
         
-        // Toggle product extra field based on product type
-        function toggleProductExtraField(productId) {
+        function updateProductExtraOptions(productId) {
+            const idNum = productId.replace('product', '');
+            const productType = document.getElementById(`productType${idNum}`).value;
+            const extraValueSelect = document.getElementById(`productExtraValue${idNum}`);
+            
+            extraValueSelect.innerHTML = productType === 'roasted' ? 
+                `<option value="whole">Whole Beans</option><option value="ground">Ground Coffee</option>` :
+                `<option value="">Select Description</option><option value="accessories">Accessories</option><option value="equipment">Equipment</option><option value="other">Other</option>`;
+        }
+        
+        function handleProductTypeChange(productId) {
             const idNum = productId.replace('product', '');
             const productType = document.getElementById(`productType${idNum}`).value;
             const extraField = document.getElementById(`productExtraField${idNum}`);
+            const otherGstField = document.getElementById(`otherGstField${idNum}`);
             const extraLabel = document.getElementById(`productExtraLabel${idNum}`);
+            
+            updateProductExtraOptions(productId);
+            document.getElementById(`grindSizeContainer${idNum}`).style.display = 'none';
             
             if (productType === 'roasted') {
                 extraField.style.display = 'block';
-                extraLabel.textContent = 'Grind Size';
-                document.getElementById(`productExtraValue${idNum}`).required = true;
+                extraLabel.textContent = 'Grind Type';
+                otherGstField.style.display = 'none';
+                document.getElementById(`gst${idNum}`).value = '5';
+            } else if (productType === 'unroasted') {
+                extraField.style.display = 'none';
+                otherGstField.style.display = 'none';
+                document.getElementById(`gst${idNum}`).value = '0';
             } else if (productType === 'other') {
                 extraField.style.display = 'block';
                 extraLabel.textContent = 'Description';
-                document.getElementById(`productExtraValue${idNum}`).required = true;
+                otherGstField.style.display = 'block';
             } else {
                 extraField.style.display = 'none';
-                document.getElementById(`productExtraValue${idNum}`).required = false;
+                otherGstField.style.display = 'none';
             }
         }
         
-        // Update dispatch items based on number of dispatches
+        function toggleGrindSizeField(productId) {
+            const idNum = productId.replace('product', '');
+            const grindType = document.getElementById(`productExtraValue${idNum}`).value;
+            document.getElementById(`grindSizeContainer${idNum}`).style.display = 
+                (document.getElementById(`productType${idNum}`).value === 'roasted' && grindType === 'ground') ? 'block' : 'none';
+        }
+        
+        function toggleSpecialInstructions(productId) {
+            const idNum = productId.replace('product', '');
+            const container = document.getElementById(`specialInstructionsContainer${idNum}`);
+            const isChecked = document.getElementById(`specialInstructionsCheck${idNum}`).checked;
+            container.style.display = isChecked ? 'block' : 'none';
+        }
+        
+        function toggleShippingFeeInput(dispatchId) {
+            const idNum = dispatchId.replace('dispatch', '');
+            const feeType = document.getElementById(`shippingFeeType${idNum}`).value;
+            const feeInput = document.getElementById(`shippingFees${idNum}`);
+            const gstGroup = document.getElementById(`shippingGstGroup${idNum}`);
+            
+            if (feeType === 'fixed') {
+                feeInput.classList.remove('disabled-input');
+                feeInput.disabled = false;
+                gstGroup.style.display = 'block';
+            } else {
+                feeInput.value = feeType === 'free' ? '0' : '';
+                feeInput.classList.add('disabled-input');
+                feeInput.disabled = true;
+                gstGroup.style.display = feeType === 'free' ? 'none' : 'block';
+            }
+        }
+        
         function updateDispatchItems() {
             const numDispatches = parseInt(document.getElementById('numDispatches').value);
             const dispatchesContainer = document.getElementById('dispatchesContainer');
             
-            // Remove extra dispatch items if number decreased
             while (dispatchCount > numDispatches) {
-                const dispatchToRemove = document.getElementById('dispatch' + dispatchCount);
-                if (dispatchToRemove) {
-                    dispatchToRemove.remove();
-                }
+                document.getElementById('dispatch' + dispatchCount)?.remove();
                 dispatchCount--;
             }
             
-            // Add new dispatch items if number increased
             while (dispatchCount < numDispatches) {
                 dispatchCount++;
                 const newDispatch = document.createElement('div');
                 newDispatch.className = 'dispatch-item';
                 newDispatch.id = 'dispatch' + dispatchCount;
-                
                 newDispatch.innerHTML = `
                     <h3>Dispatch #${dispatchCount}</h3>
                     <div class="form-group">
@@ -429,13 +515,14 @@
                         <label for="shippingFees${dispatchCount}">Shipping Fees</label>
                         <div class="shipping-fee-container">
                             <input type="number" id="shippingFees${dispatchCount}" step="0.01" min="0" placeholder="Enter amount">
-                            <select id="shippingFeeType${dispatchCount}">
+                            <select id="shippingFeeType${dispatchCount}" onchange="toggleShippingFeeInput('dispatch${dispatchCount}')">
                                 <option value="fixed">Fixed Amount</option>
                                 <option value="tbc">To Be Calculated</option>
+                                <option value="free">Free Shipping</option>
                             </select>
                         </div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="shippingGstGroup${dispatchCount}">
                         <label for="shippingGst${dispatchCount}">Shipping GST</label>
                         <select id="shippingGst${dispatchCount}" required>
                             <option value="0">0%</option>
@@ -447,196 +534,198 @@
                         <textarea id="dispatchInstructions${dispatchCount}" rows="2"></textarea>
                     </div>
                 `;
-                
                 dispatchesContainer.appendChild(newDispatch);
             }
         }
         
-        // Toggle customer details based on customer type
         function toggleCustomerDetails() {
-            const isNewCustomer = document.getElementById('newCustomer').checked;
-            const newCustomerDetails = document.getElementById('newCustomerDetails');
-            
-            if (isNewCustomer) {
-                newCustomerDetails.style.display = 'block';
-            } else {
-                newCustomerDetails.style.display = 'none';
-            }
+            document.getElementById('newCustomerDetails').style.display = 
+                document.getElementById('newCustomer').checked ? 'block' : 'none';
         }
         
-        // Toggle shipping address based on selection
         function toggleShippingAddress() {
-            const isSameAddressNo = document.getElementById('sameAddressNo').checked;
-            const shippingAddressGroup = document.getElementById('shippingAddressGroup');
-            
-            if (isSameAddressNo) {
-                shippingAddressGroup.style.display = 'block';
-            } else {
-                shippingAddressGroup.style.display = 'none';
-            }
+            document.getElementById('shippingAddressGroup').style.display = 
+                document.getElementById('sameAddressNo').checked ? 'block' : 'none';
         }
         
-        // Generate the order report
+        function formatVolume(volume) {
+            return volume % 1 === 0 ? volume.toString() : volume.toFixed(2);
+        }
+        
         function generateReport() {
-            // Validate form
-            if (!validateForm()) {
-                return;
-            }
+            if (!validateForm()) return;
             
             const report = document.getElementById('orderReport');
-            let reportContent = '';
+            report.innerHTML = '';
+            const formattedReport = document.createElement('div');
+            formattedReport.style.fontFamily = 'Arial, sans-serif';
+            formattedReport.style.lineHeight = '1.5';
             
             // Basic info
-            reportContent += '**=== ORDER SUMMARY ===**\n';
-            reportContent += `**Client Name:** ${document.getElementById('clientName').value}\n`;
-            reportContent += `**Order Date:** ${document.getElementById('orderDate').value}\n`;
+            formattedReport.innerHTML += `
+                <div class="section-header">ORDER SUMMARY</div>
+                <div style="height: 15px;"></div>
+                <div class="compact"><span class="field-label">Client Name:</span> ${document.getElementById('clientName').value}</div>
+                <div class="compact"><span class="field-label">Order Date:</span> ${document.getElementById('orderDate').value}</div>
+                <div class="compact"><span class="field-label">Customer Type:</span> ${document.querySelector('input[name="customerType"]:checked').value === 'new' ? 'New Customer' : 'Existing Customer'}</div>
+                <div style="height: 15px;"></div>
+            `;
             
-            const customerType = document.querySelector('input[name="customerType"]:checked').value;
-            reportContent += `**Customer Type:** ${customerType === 'new' ? 'New Customer' : 'Existing Customer'}\n\n`;
+            // Products grouped by product type
+            formattedReport.innerHTML += '<div class="section-header">PRODUCTS</div><div style="height: 15px;"></div>';
             
-            // Products grouped by GST rate
-            reportContent += '**=== PRODUCTS ===**\n';
-            
-            // Group products by GST rate
-            const productsByGST = {};
+            const productsByType = { roasted: [], unroasted: [], other: [] };
             for (let i = 1; i <= productCount; i++) {
                 if (!document.getElementById('productName' + i)) continue;
                 
-                const productName = document.getElementById('productName' + i).value;
-                const volume = parseFloat(document.getElementById('volume' + i).value);
-                const price = parseFloat(document.getElementById('price' + i).value);
                 const productType = document.getElementById('productType' + i).value;
-                const gst = parseInt(document.getElementById('gst' + i).value);
-                const discount = parseFloat(document.getElementById('discount' + i).value) || 0;
-                
                 let productDetails = '';
-                if (productType === 'roasted' || productType === 'other') {
-                    productDetails = document.getElementById('productExtraValue' + i).value;
+                
+                if (productType === 'roasted') {
+                    const grindType = document.getElementById(`productExtraValue${i}`).value;
+                    productDetails = `<span class="field-label">Grind Type:</span> ${grindType === 'whole' ? 'Whole Beans' : 'Ground Coffee'}`;
+                    if (grindType === 'ground') productDetails += ` (${document.getElementById(`grindSize${i}`).value})`;
+                } else if (productType === 'other') {
+                    productDetails = `<span class="field-label">Description:</span> ${document.getElementById(`productExtraValue${i}`).value}`;
                 }
                 
-                if (!productsByGST[gst]) {
-                    productsByGST[gst] = [];
-                }
-                
-                productsByGST[gst].push({
-                    name: productName,
-                    volume: volume,
-                    price: price,
+                productsByType[productType].push({
+                    name: document.getElementById('productName' + i).value,
+                    volume: parseFloat(document.getElementById('volume' + i).value),
+                    price: parseFloat(document.getElementById('price' + i).value),
                     type: productType,
                     details: productDetails,
-                    discount: discount
+                    discount: parseFloat(document.getElementById('discount' + i).value) || 0,
+                    gst: parseInt(document.getElementById('gst' + i).value),
+                    specialInstructions: document.getElementById(`specialInstructionsCheck${i}`).checked ? 
+                        document.getElementById(`productSpecialInstructions${i}`).value : ''
                 });
             }
             
-            // Display products grouped by GST rate
-            for (const [gstRate, products] of Object.entries(productsByGST)) {
-                reportContent += `\n**GST ${gstRate}%:**\n`;
+            for (const [productType, products] of Object.entries(productsByType)) {
+                if (products.length === 0) continue;
+                
+                formattedReport.innerHTML += `
+                    <div class="section-header">${getProductTypeName(productType)} (GST ${productType === 'roasted' ? '5%' : productType === 'unroasted' ? '0%' : 'varies'})</div>
+                    <div style="height: 15px;"></div>
+                `;
                 
                 products.forEach((product, index) => {
-                    reportContent += `  **Product ${index + 1}:**\n`;
-                    reportContent += `    Name: ${product.name}\n`;
-                    reportContent += `    Volume: ${product.volume.toFixed(2)} kg\n`;
-                    reportContent += `    Price/kg: ₹${product.price.toFixed(2)}\n`;
-                    reportContent += `    Type: ${getProductTypeName(product.type)}\n`;
-                    if (product.details) {
-                        reportContent += `    ${product.type === 'roasted' ? 'Grind Size' : 'Description'}: ${product.details}\n`;
-                    }
-                    if (product.discount > 0) {
-                        reportContent += `    Discount: ${product.discount}%\n`;
-                    }
+                    formattedReport.innerHTML += `
+                        <div class="product-header">Product ${index + 1}</div>
+                        <div style="height: 10px;"></div>
+                        <div class="compact"><span class="field-label">Name:</span> ${product.name}</div>
+                        <div class="compact"><span class="field-label">Volume:</span> ${formatVolume(product.volume)} kg</div>
+                        <div class="compact"><span class="field-label">Price/kg:</span> ₹${product.price.toFixed(2)}</div>
+                        ${product.details ? `<div class="compact">${product.details}</div>` : ''}
+                        ${product.discount > 0 ? `<div class="compact"><span class="field-label">Discount:</span> ${product.discount}%</div>` : ''}
+                        ${productType === 'other' ? `<div class="compact"><span class="field-label">GST Rate:</span> ${product.gst}%</div>` : ''}
+                        ${product.specialInstructions ? `<div class="compact"><span class="field-label">Special Instructions:</span> ${product.specialInstructions}</div>` : ''}
+                        <div style="height: 15px;"></div>
+                    `;
                 });
             }
             
             // Packing instructions
-            reportContent += '\n**=== PACKING INSTRUCTIONS ===**\n';
-            reportContent += `**Packaging:** ${document.getElementById('packagingInstructions').value || 'None'}\n`;
-            reportContent += `**Labels:** ${document.getElementById('labels').value || 'None'}\n`;
+            formattedReport.innerHTML += `
+                <div class="section-header">PACKAGING & LABELLING INSTRUCTIONS</div>
+                <div style="height: 15px;"></div>
+                <div class="compact">${document.getElementById('packagingInstructions').value || 'None'}</div>
+                <div style="height: 15px;"></div>
+            `;
             
             // Dispatch instructions
-            reportContent += '\n**=== DISPATCH INSTRUCTIONS ===**\n';
+            formattedReport.innerHTML += '<div class="section-header">DISPATCH INSTRUCTIONS</div><div style="height: 15px;"></div>';
+            
             for (let i = 1; i <= dispatchCount; i++) {
                 if (dispatchCount > 1) {
-                    reportContent += `\n**Dispatch #${i}:**\n`;
+                    formattedReport.innerHTML += `<div class="product-header">Dispatch ${i}</div><div style="height: 10px;"></div>`;
                 }
                 const shippingFeeType = document.getElementById(`shippingFeeType${i}`).value;
                 const shippingFeeValue = shippingFeeType === 'tbc' ? 'To Be Calculated' : 
-                    `₹${parseFloat(document.getElementById(`shippingFees${i}`).value).toFixed(2)}`;
+                                      shippingFeeType === 'free' ? 'Free Shipping' : 
+                                      `₹${parseFloat(document.getElementById(`shippingFees${i}`).value).toFixed(2)}`;
                 
-                reportContent += `  **Courier:** ${document.getElementById(`courier${i}`).value}\n`;
-                reportContent += `  **Shipping Fees:** ${shippingFeeValue}\n`;
-                if (shippingFeeType !== 'tbc') {
-                    reportContent += `  **Shipping GST:** ${document.getElementById(`shippingGst${i}`).value}%\n`;
-                }
-                reportContent += `  **Additional Instructions:** ${document.getElementById(`dispatchInstructions${i}`).value || 'None'}\n`;
+                formattedReport.innerHTML += `
+                    <div class="compact"><span class="field-label">Courier:</span> ${document.getElementById(`courier${i}`).value}</div>
+                    <div class="compact"><span class="field-label">Shipping Fees:</span> ${shippingFeeValue}</div>
+                    ${shippingFeeType !== 'free' ? `<div class="compact"><span class="field-label">Shipping GST:</span> ${document.getElementById(`shippingGst${i}`).value}%</div>` : ''}
+                    <div class="compact"><span class="field-label">Additional Instructions:</span> ${document.getElementById(`dispatchInstructions${i}`).value || 'None'}</div>
+                    <div style="height: 15px;"></div>
+                `;
             }
             
             // Customer details
-            reportContent += '\n**=== CUSTOMER DETAILS ===**\n';
-            if (customerType === 'new') {
+            formattedReport.innerHTML += '<div class="section-header">CUSTOMER DETAILS</div><div style="height: 15px;"></div>';
+            
+            if (document.getElementById('newCustomer').checked) {
                 const gstin = document.getElementById('gstin').value;
                 const contactNumber = document.getElementById('contactNumber').value;
                 const billingAddress = document.getElementById('billingAddress').value;
-                const isSameAddress = document.querySelector('input[name="sameAddress"]:checked').value === 'yes';
-                const shippingAddress = isSameAddress ? billingAddress : document.getElementById('shippingAddress').value;
+                const shippingAddress = document.querySelector('input[name="sameAddress"]:checked').value === 'yes' ? 
+                    billingAddress : document.getElementById('shippingAddress').value;
                 
-                reportContent += `**GSTIN:** ${gstin || 'Not provided'}\n`;
-                reportContent += `**Contact Number:** ${contactNumber || 'Not provided'}\n`;
-                reportContent += '\n**Billing Address:**\n';
-                reportContent += `${billingAddress}\n`;
-                reportContent += '\n**Shipping Address:**\n';
-                reportContent += `${shippingAddress}\n`;
+                formattedReport.innerHTML += `
+                    <div class="compact"><span class="field-label">GSTIN:</span> ${gstin || 'Not provided'}</div>
+                    <div class="compact"><span class="field-label">Contact Number:</span> ${contactNumber || 'Not provided'}</div>
+                    <div class="compact"><span class="field-label">Billing Address:</span></div>
+                    <div class="compact">${billingAddress}</div>
+                    <div class="compact"><span class="field-label">Shipping Address:</span></div>
+                    <div class="compact">${shippingAddress}</div>
+                    <div style="height: 15px;"></div>
+                `;
             } else {
-                reportContent += 'Existing customer - details on file\n';
+                formattedReport.innerHTML += '<div class="compact">Existing customer - details on file</div><div style="height: 15px;"></div>';
             }
             
             // Special instructions
-            reportContent += '\n**=== SPECIAL INSTRUCTIONS ===**\n';
-            reportContent += `${document.getElementById('specialInstructions').value || 'None'}\n`;
+            formattedReport.innerHTML += `
+                <div class="section-header">SPECIAL INSTRUCTIONS</div>
+                <div style="height: 15px;"></div>
+                <div class="compact">${document.getElementById('specialInstructions').value || 'None'}</div>
+            `;
             
-            // Show the report
-            report.textContent = reportContent;
+            report.appendChild(formattedReport);
             report.style.display = 'block';
             document.getElementById('copyButton').style.display = 'inline-block';
-            
-            // Scroll to report
             report.scrollIntoView({ behavior: 'smooth' });
         }
         
-        // Copy report to clipboard
         function copyToClipboard() {
-            const reportText = document.getElementById('orderReport').textContent;
-            navigator.clipboard.writeText(reportText).then(() => {
-                alert('Order report copied to clipboard!');
-            }).catch(err => {
+            const reportElement = document.getElementById('orderReport');
+            const range = document.createRange();
+            range.selectNode(reportElement);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            
+            try {
+                document.execCommand('copy') ? alert('Order report copied to clipboard!') : alert('Copy failed');
+            } catch (err) {
                 console.error('Failed to copy: ', err);
                 alert('Failed to copy to clipboard. Please manually select and copy the text.');
-            });
-        }
-        
-        // Get product type name for display
-        function getProductTypeName(type) {
-            switch(type) {
-                case 'roasted': return 'Roasted Coffee';
-                case 'unroasted': return 'Unroasted Coffee';
-                case 'other': return 'Other';
-                default: return '';
             }
+            
+            window.getSelection().removeAllRanges();
         }
         
-        // Validate form before generating report
+        function getProductTypeName(type) {
+            return type === 'roasted' ? 'Roasted Coffee' : 
+                   type === 'unroasted' ? 'Unroasted Coffee' : 
+                   'Other Products';
+        }
+        
         function validateForm() {
-            // Check client name and date
+            // Validate client name and date
             if (!document.getElementById('clientName').value) {
                 alert('Please enter client name');
                 return false;
             }
-            
             if (!document.getElementById('orderDate').value) {
                 alert('Please select order date');
                 return false;
             }
             
-            // Check all products
+            // Validate products
             for (let i = 1; i <= productCount; i++) {
                 if (!document.getElementById('productName' + i)) continue;
                 
@@ -644,12 +733,10 @@
                     alert(`Please enter product name for product #${i}`);
                     return false;
                 }
-                
                 if (!document.getElementById('volume' + i).value || parseFloat(document.getElementById('volume' + i).value) <= 0) {
                     alert(`Please enter valid volume for product #${i}`);
                     return false;
                 }
-                
                 if (!document.getElementById('price' + i).value || parseFloat(document.getElementById('price' + i).value) <= 0) {
                     alert(`Please enter valid price for product #${i}`);
                     return false;
@@ -661,15 +748,28 @@
                     return false;
                 }
                 
-                if ((productType === 'roasted' || productType === 'other') && 
-                    !document.getElementById('productExtraValue' + i).value) {
-                    const fieldName = productType === 'roasted' ? 'Grind Size' : 'Description';
-                    alert(`Please enter ${fieldName} for product #${i}`);
+                if (productType === 'roasted') {
+                    const grindType = document.getElementById(`productExtraValue${i}`).value;
+                    if (!grindType) {
+                        alert(`Please select grind type for product #${i}`);
+                        return false;
+                    }
+                    if (grindType === 'ground' && !document.getElementById(`grindSize${i}`).value) {
+                        alert(`Please enter grind size for product #${i}`);
+                        return false;
+                    }
+                } else if (productType === 'other' && !document.getElementById(`productExtraValue${i}`).value) {
+                    alert(`Please select description for product #${i}`);
+                    return false;
+                }
+                
+                if (document.getElementById(`specialInstructionsCheck${i}`).checked && !document.getElementById(`productSpecialInstructions${i}`).value) {
+                    alert(`Please enter special instructions for product #${i} or uncheck the box`);
                     return false;
                 }
             }
             
-            // Check all dispatches
+            // Validate dispatches
             for (let i = 1; i <= dispatchCount; i++) {
                 if (!document.getElementById('courier' + i).value) {
                     alert(`Please enter courier name for dispatch #${i}`);
@@ -677,23 +777,19 @@
                 }
                 
                 const shippingFeeType = document.getElementById(`shippingFeeType${i}`).value;
-                if (shippingFeeType === 'fixed' && 
-                    (!document.getElementById(`shippingFees${i}`).value || 
-                    parseFloat(document.getElementById(`shippingFees${i}`).value) < 0)) {
+                if (shippingFeeType === 'fixed' && (!document.getElementById(`shippingFees${i}`).value || parseFloat(document.getElementById(`shippingFees${i}`).value) < 0)) {
                     alert(`Please enter valid shipping fees for dispatch #${i}`);
                     return false;
                 }
             }
             
-            // Check new customer details if applicable
+            // Validate new customer details
             if (document.getElementById('newCustomer').checked) {
                 if (!document.getElementById('billingAddress').value) {
                     alert('Please enter billing address for new customer');
                     return false;
                 }
-                
-                if (document.getElementById('sameAddressNo').checked && 
-                    !document.getElementById('shippingAddress').value) {
+                if (document.getElementById('sameAddressNo').checked && !document.getElementById('shippingAddress').value) {
                     alert('Please enter shipping address for new customer');
                     return false;
                 }
