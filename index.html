@@ -564,15 +564,15 @@
             // Basic info
             formattedReport.innerHTML += `
                 <div class="section-header">ORDER SUMMARY</div>
-                <div style="height: 15px;"></div>
+                <p style="margin: 15px 0;"></p>
                 <div class="compact"><span class="field-label">Client Name:</span> ${document.getElementById('clientName').value}</div>
                 <div class="compact"><span class="field-label">Order Date:</span> ${document.getElementById('orderDate').value}</div>
                 <div class="compact"><span class="field-label">Customer Type:</span> ${document.querySelector('input[name="customerType"]:checked').value === 'new' ? 'New Customer' : 'Existing Customer'}</div>
-                <div style="height: 15px;"></div>
+                <p style="margin: 15px 0;"></p>
             `;
             
             // Products grouped by product type
-            formattedReport.innerHTML += '<div class="section-header">PRODUCTS</div><div style="height: 15px;"></div>';
+            formattedReport.innerHTML += '<div class="section-header">PRODUCTS</div><p style="margin: 15px 0;"></p>';
             
             const productsByType = { roasted: [], unroasted: [], other: [] };
             for (let i = 1; i <= productCount; i++) {
@@ -607,13 +607,13 @@
                 
                 formattedReport.innerHTML += `
                     <div class="section-header">${getProductTypeName(productType)} (GST ${productType === 'roasted' ? '5%' : productType === 'unroasted' ? '0%' : 'varies'})</div>
-                    <div style="height: 15px;"></div>
+                    <p style="margin: 15px 0;"></p>
                 `;
                 
                 products.forEach((product, index) => {
                     formattedReport.innerHTML += `
                         <div class="product-header">Product ${index + 1}</div>
-                        <div style="height: 10px;"></div>
+                        <p style="margin: 10px 0;"></p>
                         <div class="compact"><span class="field-label">Name:</span> ${product.name}</div>
                         <div class="compact"><span class="field-label">Volume:</span> ${formatVolume(product.volume)} kg</div>
                         <div class="compact"><span class="field-label">Price/kg:</span> ₹${product.price.toFixed(2)}</div>
@@ -621,7 +621,7 @@
                         ${product.discount > 0 ? `<div class="compact"><span class="field-label">Discount:</span> ${product.discount}%</div>` : ''}
                         ${productType === 'other' ? `<div class="compact"><span class="field-label">GST Rate:</span> ${product.gst}%</div>` : ''}
                         ${product.specialInstructions ? `<div class="compact"><span class="field-label">Special Instructions:</span> ${product.specialInstructions}</div>` : ''}
-                        <div style="height: 15px;"></div>
+                        <p style="margin: 15px 0;"></p>
                     `;
                 });
             }
@@ -629,17 +629,17 @@
             // Packing instructions
             formattedReport.innerHTML += `
                 <div class="section-header">PACKAGING & LABELLING INSTRUCTIONS</div>
-                <div style="height: 15px;"></div>
+                <p style="margin: 15px 0;"></p>
                 <div class="compact">${document.getElementById('packagingInstructions').value || 'None'}</div>
-                <div style="height: 15px;"></div>
+                <p style="margin: 15px 0;"></p>
             `;
             
             // Dispatch instructions
-            formattedReport.innerHTML += '<div class="section-header">DISPATCH INSTRUCTIONS</div><div style="height: 15px;"></div>';
+            formattedReport.innerHTML += '<div class="section-header">DISPATCH INSTRUCTIONS</div><p style="margin: 15px 0;"></p>';
             
             for (let i = 1; i <= dispatchCount; i++) {
                 if (dispatchCount > 1) {
-                    formattedReport.innerHTML += `<div class="product-header">Dispatch ${i}</div><div style="height: 10px;"></div>`;
+                    formattedReport.innerHTML += `<div class="product-header">Dispatch ${i}</div><p style="margin: 10px 0;"></p>`;
                 }
                 const shippingFeeType = document.getElementById(`shippingFeeType${i}`).value;
                 const shippingFeeValue = shippingFeeType === 'tbc' ? 'To Be Calculated' : 
@@ -651,12 +651,12 @@
                     <div class="compact"><span class="field-label">Shipping Fees:</span> ${shippingFeeValue}</div>
                     ${shippingFeeType !== 'free' ? `<div class="compact"><span class="field-label">Shipping GST:</span> ${document.getElementById(`shippingGst${i}`).value}%</div>` : ''}
                     <div class="compact"><span class="field-label">Additional Instructions:</span> ${document.getElementById(`dispatchInstructions${i}`).value || 'None'}</div>
-                    <div style="height: 15px;"></div>
+                    <p style="margin: 15px 0;"></p>
                 `;
             }
             
             // Customer details
-            formattedReport.innerHTML += '<div class="section-header">CUSTOMER DETAILS</div><div style="height: 15px;"></div>';
+            formattedReport.innerHTML += '<div class="section-header">CUSTOMER DETAILS</div><p style="margin: 15px 0;"></p>';
             
             if (document.getElementById('newCustomer').checked) {
                 const gstin = document.getElementById('gstin').value;
@@ -672,16 +672,16 @@
                     <div class="compact">${billingAddress}</div>
                     <div class="compact"><span class="field-label">Shipping Address:</span></div>
                     <div class="compact">${shippingAddress}</div>
-                    <div style="height: 15px;"></div>
+                    <p style="margin: 15px 0;"></p>
                 `;
             } else {
-                formattedReport.innerHTML += '<div class="compact">Existing customer - details on file</div><div style="height: 15px;"></div>';
+                formattedReport.innerHTML += '<div class="compact">Existing customer - details on file</div><p style="margin: 15px 0;"></p>';
             }
             
             // Special instructions
             formattedReport.innerHTML += `
                 <div class="section-header">SPECIAL INSTRUCTIONS</div>
-                <div style="height: 15px;"></div>
+                <p style="margin: 15px 0;"></p>
                 <div class="compact">${document.getElementById('specialInstructions').value || 'None'}</div>
             `;
             
