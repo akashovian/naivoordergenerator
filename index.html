@@ -115,6 +115,16 @@
         .report-line {
             margin: 5px 0;
         }
+        .shipping-fee-container {
+            display: flex;
+            gap: 10px;
+        }
+        .shipping-fee-container input[type="number"] {
+            flex: 1;
+        }
+        .shipping-fee-container select {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -165,12 +175,16 @@
                 <div class="form-group">
                     <label for="gst1">GST Taxation</label>
                     <select id="gst1" required>
+                        <option value="5" selected>5%</option>
                         <option value="0">Tax Exempt</option>
-                        <option value="5">5%</option>
                         <option value="12">12%</option>
                         <option value="18">18%</option>
                         <option value="28">28%</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="discount1">Discount (%)</label>
+                    <input type="number" id="discount1" min="0" max="100" value="0" step="0.01">
                 </div>
             </div>
         </div>
@@ -203,8 +217,14 @@
                     <input type="text" id="courier1" required>
                 </div>
                 <div class="form-group">
-                    <label for="shippingFees1">Shipping Fees (₹)</label>
-                    <input type="number" id="shippingFees1" step="0.01" min="0" required>
+                    <label for="shippingFees1">Shipping Fees</label>
+                    <div class="shipping-fee-container">
+                        <input type="number" id="shippingFees1" step="0.01" min="0" placeholder="Enter amount">
+                        <select id="shippingFeeType1">
+                            <option value="fixed">Fixed Amount</option>
+                            <option value="tbc">To Be Calculated</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="shippingGst1">Shipping GST</label>
@@ -330,12 +350,16 @@
                 <div class="form-group">
                     <label for="gst${productCount}">GST Taxation</label>
                     <select id="gst${productCount}" required>
+                        <option value="5" selected>5%</option>
                         <option value="0">Tax Exempt</option>
-                        <option value="5">5%</option>
                         <option value="12">12%</option>
                         <option value="18">18%</option>
                         <option value="28">28%</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="discount${productCount}">Discount (%)</label>
+                    <input type="number" id="discount${productCount}" min="0" max="100" value="0" step="0.01">
                 </div>
             `;
             
@@ -402,8 +426,14 @@
                         <input type="text" id="courier${dispatchCount}" required>
                     </div>
                     <div class="form-group">
-                        <label for="shippingFees${dispatchCount}">Shipping Fees (₹)</label>
-                        <input type="number" id="shippingFees${dispatchCount}" step="0.01" min="0" required>
+                        <label for="shippingFees${dispatchCount}">Shipping Fees</label>
+                        <div class="shipping-fee-container">
+                            <input type="number" id="shippingFees${dispatchCount}" step="0.01" min="0" placeholder="Enter amount">
+                            <select id="shippingFeeType${dispatchCount}">
+                                <option value="fixed">Fixed Amount</option>
+                                <option value="tbc">To Be Calculated</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="shippingGst${dispatchCount}">Shipping GST</label>
@@ -457,17 +487,18 @@
             let reportContent = '';
             
             // Basic info
-            reportContent += '=== ORDER SUMMARY ===\n';
-            reportContent += `Client Name: ${document.getElementById('clientName').value}\n`;
-            reportContent += `Order Date: ${document.getElementById('orderDate').value}\n`;
+            reportContent += '**=== ORDER SUMMARY ===**\n';
+            reportContent += `**Client Name:** ${document.getElementById('clientName').value}\n`;
+            reportContent += `**Order Date:** ${document.getElementById('orderDate').value}\n`;
             
             const customerType = document.querySelector('input[name="customerType"]:checked').value;
-            reportContent += `Customer Type: ${customerType === 'new' ? 'New Customer' : 'Existing Customer'}\n\n`;
+            reportContent += `**Customer Type:** ${customerType === 'new' ? 'New Customer' : 'Existing Customer'}\n\n`;
             
-            // Products
-            reportContent += '=== PRODUCTS ===\n';
-            let totalAmount = 0;
+            // Products grouped by GST rate
+            reportContent += '**=== PRODUCTS ===**\n';
             
+            // Group products by GST rate
+            const productsByGST = {};
             for (let i = 1; i <= productCount; i++) {
                 if (!document.getElementById('productName' + i)) continue;
                 
@@ -476,60 +507,90 @@
                 const price = parseFloat(document.getElementById('price' + i).value);
                 const productType = document.getElementById('productType' + i).value;
                 const gst = parseInt(document.getElementById('gst' + i).value);
+                const discount = parseFloat(document.getElementById('discount' + i).value) || 0;
                 
                 let productDetails = '';
                 if (productType === 'roasted' || productType === 'other') {
                     productDetails = document.getElementById('productExtraValue' + i).value;
                 }
                 
-                const subtotal = volume * price;
-                totalAmount += subtotal;
-                
-                reportContent += `Product #${i}:\n`;
-                reportContent += `  Name: ${productName}\n`;
-                reportContent += `  Volume: ${volume.toFixed(2)} kg\n`;
-                reportContent += `  Price/kg: ₹${price.toFixed(2)}\n`;
-                reportContent += `  Type: ${getProductTypeName(productType)}\n`;
-                if (productDetails) {
-                    reportContent += `  ${productType === 'roasted' ? 'Grind Size' : 'Description'}: ${productDetails}\n`;
+                if (!productsByGST[gst]) {
+                    productsByGST[gst] = [];
                 }
-                reportContent += `  GST: ${gst}%\n`;
-                reportContent += `  Subtotal: ₹${subtotal.toFixed(2)}\n\n`;
+                
+                productsByGST[gst].push({
+                    name: productName,
+                    volume: volume,
+                    price: price,
+                    type: productType,
+                    details: productDetails,
+                    discount: discount
+                });
+            }
+            
+            // Display products grouped by GST rate
+            for (const [gstRate, products] of Object.entries(productsByGST)) {
+                reportContent += `\n**GST ${gstRate}%:**\n`;
+                
+                products.forEach((product, index) => {
+                    reportContent += `  **Product ${index + 1}:**\n`;
+                    reportContent += `    Name: ${product.name}\n`;
+                    reportContent += `    Volume: ${product.volume.toFixed(2)} kg\n`;
+                    reportContent += `    Price/kg: ₹${product.price.toFixed(2)}\n`;
+                    reportContent += `    Type: ${getProductTypeName(product.type)}\n`;
+                    if (product.details) {
+                        reportContent += `    ${product.type === 'roasted' ? 'Grind Size' : 'Description'}: ${product.details}\n`;
+                    }
+                    if (product.discount > 0) {
+                        reportContent += `    Discount: ${product.discount}%\n`;
+                    }
+                });
             }
             
             // Packing instructions
-            reportContent += '=== PACKING INSTRUCTIONS ===\n';
-            reportContent += `Packaging: ${document.getElementById('packagingInstructions').value || 'None'}\n`;
-            reportContent += `Labels: ${document.getElementById('labels').value || 'None'}\n\n`;
+            reportContent += '\n**=== PACKING INSTRUCTIONS ===**\n';
+            reportContent += `**Packaging:** ${document.getElementById('packagingInstructions').value || 'None'}\n`;
+            reportContent += `**Labels:** ${document.getElementById('labels').value || 'None'}\n`;
             
             // Dispatch instructions
-            reportContent += '=== DISPATCH INSTRUCTIONS ===\n';
+            reportContent += '\n**=== DISPATCH INSTRUCTIONS ===**\n';
             for (let i = 1; i <= dispatchCount; i++) {
-                reportContent += `Dispatch #${i}:\n`;
-                reportContent += `  Courier: ${document.getElementById('courier' + i).value}\n`;
-                reportContent += `  Shipping Fees: ₹${parseFloat(document.getElementById('shippingFees' + i).value).toFixed(2)} (GST ${document.getElementById('shippingGst' + i).value}%)\n`;
-                reportContent += `  Additional Instructions: ${document.getElementById('dispatchInstructions' + i).value || 'None'}\n\n`;
+                if (dispatchCount > 1) {
+                    reportContent += `\n**Dispatch #${i}:**\n`;
+                }
+                const shippingFeeType = document.getElementById(`shippingFeeType${i}`).value;
+                const shippingFeeValue = shippingFeeType === 'tbc' ? 'To Be Calculated' : 
+                    `₹${parseFloat(document.getElementById(`shippingFees${i}`).value).toFixed(2)}`;
+                
+                reportContent += `  **Courier:** ${document.getElementById(`courier${i}`).value}\n`;
+                reportContent += `  **Shipping Fees:** ${shippingFeeValue}\n`;
+                if (shippingFeeType !== 'tbc') {
+                    reportContent += `  **Shipping GST:** ${document.getElementById(`shippingGst${i}`).value}%\n`;
+                }
+                reportContent += `  **Additional Instructions:** ${document.getElementById(`dispatchInstructions${i}`).value || 'None'}\n`;
             }
             
             // Customer details
-            reportContent += '=== CUSTOMER DETAILS ===\n';
+            reportContent += '\n**=== CUSTOMER DETAILS ===**\n';
             if (customerType === 'new') {
                 const gstin = document.getElementById('gstin').value;
+                const contactNumber = document.getElementById('contactNumber').value;
                 const billingAddress = document.getElementById('billingAddress').value;
                 const isSameAddress = document.querySelector('input[name="sameAddress"]:checked').value === 'yes';
                 const shippingAddress = isSameAddress ? billingAddress : document.getElementById('shippingAddress').value;
-                const contactNumber = document.getElementById('contactNumber').value;
                 
-                reportContent += `GSTIN: ${gstin || 'Not provided'}\n`;
-                reportContent += `Contact Number: ${contactNumber || 'Not provided'}\n`;
-                reportContent += `Billing Address:\n${billingAddress}\n`;
-                reportContent += `Shipping Address:\n${shippingAddress}\n`;
+                reportContent += `**GSTIN:** ${gstin || 'Not provided'}\n`;
+                reportContent += `**Contact Number:** ${contactNumber || 'Not provided'}\n`;
+                reportContent += '\n**Billing Address:**\n';
+                reportContent += `${billingAddress}\n`;
+                reportContent += '\n**Shipping Address:**\n';
+                reportContent += `${shippingAddress}\n`;
             } else {
                 reportContent += 'Existing customer - details on file\n';
             }
             
             // Special instructions
-            reportContent += '\n=== SPECIAL INSTRUCTIONS ===\n';
+            reportContent += '\n**=== SPECIAL INSTRUCTIONS ===**\n';
             reportContent += `${document.getElementById('specialInstructions').value || 'None'}\n`;
             
             // Show the report
@@ -615,8 +676,10 @@
                     return false;
                 }
                 
-                if (!document.getElementById('shippingFees' + i).value || 
-                    parseFloat(document.getElementById('shippingFees' + i).value) < 0) {
+                const shippingFeeType = document.getElementById(`shippingFeeType${i}`).value;
+                if (shippingFeeType === 'fixed' && 
+                    (!document.getElementById(`shippingFees${i}`).value || 
+                    parseFloat(document.getElementById(`shippingFees${i}`).value) < 0)) {
                     alert(`Please enter valid shipping fees for dispatch #${i}`);
                     return false;
                 }
